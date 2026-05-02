@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Real-Time Digital Clock | Live DOM Clock</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 30%, #0a0f1e, #03060c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Segoe UI', 'Orbitron', 'Courier New', 'Fira Code', monospace;
+      padding: 1.5rem;
+    }
+
+    /* glassmorphic card */
+    .clock-card {
+      background: rgba(12, 18, 28, 0.65);
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border-radius: 3rem;
+      padding: 2.5rem 2rem;
+      box-shadow: 0 25px 45px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(80, 180, 255, 0.25);
+      transition: all 0.2s ease;
+      text-align: center;
+      width: 100%;
+      max-width: 750px;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      font-weight: 500;
+      background: linear-gradient(135deg, #c0e0ff, #70b8ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 1rem;
+      text-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    }
+
+    /* main time display */
+    .time {
+      font-size: 5.2rem;
+      font-weight: 700;
+      font-family: 'Orbitron', 'Courier New', 'Fira Mono', monospace;
+      letter-spacing: 5px;
+      text-shadow: 0 0 8px #2f9eff, 0 0 2px #9fccff;
+      background: linear-gradient(145deg, #f0f9ff, #cde4ff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: none;
+      background-color: #eef5ff;
+      background-image: linear-gradient(135deg, #ffffff, #b3dcff);
+      transition: all 0.05s linear;
+      margin: 0.5rem 0;
+    }
+
+    /* fallback for better readability: solid color + glow */
+    @supports not (background-clip: text) {
+      .time {
+        color: #c7eaff;
+        text-shadow: 0 0 6px #1e88e5;
+      }
+    }
+
+    /* date styling */
+    .date {
+      font-size: 1.5rem;
+      margin-top: 1.2rem;
+      font-weight: 400;
+      letter-spacing: 1px;
+      color: #bcd0f0;
+      background: rgba(0, 10, 25, 0.5);
+      display: inline-block;
+      padding: 0.5rem 1.2rem;
+      border-radius: 60px;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+      font-family: 'Segoe UI', 'Courier New', monospace;
+      border: 0.5px solid rgba(100, 180, 250, 0.3);
+    }
+
+    /* subtle separator/decoration */
+    .clock-card::after {
+      content: "⚡ live DOM update ⚡";
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #6c8dae;
+      margin-top: 1.5rem;
+      opacity: 0.7;
+      font-weight: 300;
+    }
+
+    /* responsive design */
+    @media (max-width: 580px) {
+      .clock-card {
+        padding: 1.8rem 1rem;
+        border-radius: 2rem;
+      }
+      .time {
+        font-size: 2.8rem;
+        letter-spacing: 3px;
+      }
+      .date {
+        font-size: 1rem;
+        padding: 0.3rem 1rem;
+      }
+      h1 {
+        font-size: 1.2rem;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .time {
+        font-size: 2.2rem;
+        letter-spacing: 2px;
+      }
+    }
+
+    /* small pulsation effect on second update (optional smoothness) */
+    .time {
+      transition: transform 0.08s cubic-bezier(0.2, 1.2, 0.8, 1);
+    }
+    .time:active {
+      transform: scale(0.99);
+    }
+  </style>
+</head>
+<body>
+
+<div class="clock-card">
+  <h1> REAL-TIME DIGITAL CLOCK</h1>
+  <!-- DOM target for clock time -->
+  <div id="digitalClockDisplay" class="time">--:--:-- --</div>
+  <!-- DOM target for current date -->
+  <div id="dateDisplay" class="date">--</div>
+</div>
+
+<script>
+  (function() {
+    "use strict";
+
+    // ----- DOM elements -----
+    const timeElement = document.getElementById('digitalClockDisplay');
+    const dateElement = document.getElementById('dateDisplay');
+
+    // safety check: ensure elements exist before any updates
+    if (!timeElement || !dateElement) {
+      console.error('Critical DOM elements missing! Clock cannot start.');
+      return;
+    }
+
+    /**
+     * Formats current time as hh:mm:ss AM/PM (12-hour digital format)
+     * @param {Date} dateObj - current date object
+     * @returns {string} formatted time string (e.g., "02:45:09 PM")
+     */
+    function formatTime(dateObj) {
+      let hours = dateObj.getHours();
+      const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+      const seconds = dateObj.getSeconds().toString().padStart(2, '0');
+      
+      // determine AM/PM
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      
+      // convert to 12-hour format
+      let hours12 = hours % 12;
+      hours12 = hours12 === 0 ? 12 : hours12;  // hour '0' becomes '12'
+      
+      // build digital time string (no leading zero for hours, classic)
+      return `${hours12}:${minutes}:${seconds} ${ampm}`;
+    }
+
+    /**
+     * Formats full date: Weekday, Month Day, Year (e.g., "Tuesday, March 18, 2026")
+     * Uses user's locale for readable representation.
+     * @param {Date} dateObj - current date
+     * @returns {string} nicely formatted date string
+     */
+    function formatDate(dateObj) {
+      const options = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      };
+      return dateObj.toLocaleDateString(undefined, options);
+    }
+
+    /**
+     * Core function that reads current system time & date,
+     * updates both DOM elements (time & date) in real time.
+     * Fully DOM-driven per requirement.
+     */
+    function updateClockAndDate() {
+      const now = new Date();
+      
+      // 1. Update digital time (HH:MM:SS AM/PM)
+      const timeString = formatTime(now);
+      timeElement.textContent = timeString;
+      
+      // 2. Update calendar date with full weekday + month + day + year
+      const dateString = formatDate(now);
+      dateElement.textContent = dateString;
+    }
+
+    updateClockAndDate();
+
+    const intervalId = setInterval(updateClockAndDate, 1000);
+
+    window.addEventListener('beforeunload', function() {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    });
+  })();
+</script>
+</body>
+</html>
